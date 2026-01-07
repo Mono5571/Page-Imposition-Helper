@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ページ組み補助ツール</title>
+    <style>
+      :root {
+        --page-width: 5rem;
+        --sheet-width: calc(var(--page-width) * 2);
+
+        --font-size-submit: 1.2rem;
+
+        --color-submit: oklch(0.5631 0.1496 248.42);
+        --color-submit-fallback: #0b79c8;
+        --color-submit-hover: color-mix(in oklch, var(--color-submit) 80%, transparent);
+        --color-submit-hover-fallback: rgb(from var(--color-submit-fallback) r g b / 0.8);
+      }
+
+      button {
+        touch-action: manipulation;
+      }
+
+      .centerXY {
+        display: block grid;
+        place-content: center;
+      }
+
+      .button-submit-container {
+        padding: 0.5rem 0;
+      }
+
+      .button-submit {
+        width: 100%;
+        padding: 0.5rem 0;
+        color: #fff;
+        background-color: var(--color-submit-fallback);
+        background-color: var(--color-submit);
+        border: none;
+        border-radius: 100vmax;
+        transition: bacground-color 0.3s ease;
+
+        &:active {
+          translate: 0 2px;
+        }
+
+        @media (any-hover: hover) {
+          &:hover {
+            background-color: var(--color-submit-hover-fallback);
+            background-color: var(--color-submit-hover);
+          }
+        }
+      }
+
+      .pages-table-head {
+        display: block grid;
+        width: fit-content;
+        height: 2rem;
+        margin-inline: auto;
+        grid-template-areas: '. head-front . head-back .';
+        grid-template-columns: 2rem var(--sheet-width) 1.5rem var(--sheet-width) 2rem;
+
+        .head-front {
+          grid-area: head-front;
+        }
+
+        .head-back {
+          grid-area: head-back;
+        }
+      }
+
+      .pages-table {
+        width: fit-content;
+        margin-inline: auto;
+      }
+
+      .pages-table-row {
+        display: block grid;
+        width: fit-content;
+        height: calc(var(--page-width) * 1.4);
+        padding: 1rem 0;
+        grid-template-areas: 'sheet-number front . back modifier';
+        grid-template-columns: 2rem var(--sheet-width) 1.5rem var(--sheet-width) 2rem;
+
+        .sheet-number {
+          grid-area: sheet-number;
+        }
+
+        .front {
+          grid-area: front;
+          background-color: #fff;
+        }
+
+        .back {
+          grid-area: back;
+          background-color: #fff;
+        }
+
+        .modifier {
+          grid-area: modifier;
+        }
+      }
+
+      .front,
+      .back {
+        display: flex;
+        border: 2px solid #111;
+      }
+
+      .left,
+      .right {
+        width: 50%;
+        height: 100%;
+      }
+
+      .left {
+        border-right: 1px dashed #111;
+      }
+
+      .sheet-number {
+        font-size: 1.2rem;
+      }
+
+      .page-number {
+        font-size: 1.5rem;
+      }
+
+      .modifier {
+        writing-mode: vertical-rl;
+        text-orientation: upright;
+      }
+
+      .color-print-sheet {
+        background-color: #ccc;
+      }
+    </style>
+    <script src="./script.js" defer></script>
+  </head>
+  <body></body>
+</html>
