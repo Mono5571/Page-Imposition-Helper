@@ -11,10 +11,14 @@
 
         --font-size-submit: 1.2rem;
 
+        --color-bg: #fff;
+        --color-chromatic-print-bg: #ccc;
+        --color-border: #111;
         --color-submit: oklch(0.5631 0.1496 248.42);
         --color-submit-fallback: #0b79c8;
         --color-submit-hover: color-mix(in oklch, var(--color-submit) 80%, transparent);
         --color-submit-hover-fallback: rgb(from var(--color-submit-fallback) r g b / 0.8);
+        --color-error: red;
       }
 
       button {
@@ -33,12 +37,12 @@
       .button-submit {
         width: 100%;
         padding: 0.5rem 0;
-        color: #fff;
+        color: var(--color-bg);
         background-color: var(--color-submit-fallback);
         background-color: var(--color-submit);
         border: none;
         border-radius: 100vmax;
-        transition: bacground-color 0.3s ease;
+        transition: bacground-color 0.3s ease, translate 0.3s ease;
 
         &:active {
           translate: 0 2px;
@@ -88,12 +92,12 @@
 
         .front {
           grid-area: front;
-          background-color: #fff;
+          background-color: var(--color-bg);
         }
 
         .back {
           grid-area: back;
-          background-color: #fff;
+          background-color: var(--color-bg);
         }
 
         .modifier {
@@ -104,7 +108,7 @@
       .front,
       .back {
         display: flex;
-        border: 2px solid #111;
+        border: 2px solid var(--color-border);
       }
 
       .left,
@@ -114,7 +118,7 @@
       }
 
       .left {
-        border-right: 1px dashed #111;
+        border-right: 1px dashed var(--color-border);
       }
 
       .sheet-number {
@@ -131,7 +135,41 @@
       }
 
       .color-print-sheet {
-        background-color: #ccc;
+        background-color: var(--color-chromatic-print-bg);
+      }
+
+      .error-message {
+        margin-inline: auto;
+        width: fit-content;
+        padding-block: 1rem;
+        padding-inline: 3rem 1rem;
+        border: 1px solid var(--color-error);
+        position: relative;
+
+        &::before,
+        &::after {
+          position: absolute;
+          display: inline-block;
+
+          top: 50%;
+          transform: translate(-50%, -50%);
+          left: 1.8rem;
+        }
+
+        &::after {
+          content: '!';
+          color: var(--color-bg);
+          font-size: 0.8rem;
+          font-weight: 700;
+        }
+
+        &::before {
+          content: '';
+          width: 1rem;
+          height: 1rem;
+          border-radius: 100vmax;
+          background-color: var(--color-error);
+        }
       }
     </style>
     <script src="./script.js" defer></script>
