@@ -37,158 +37,12 @@ const isSafePositiveInteger = (input) => {
   return input > 0 && Number.isSafeInteger(input);
 };
 
-// 厳格なホワイトリスト
-/**
- * ElementPropsKey についての Single Source of Truth
- * elementPropsKeyList とコンフリクトするなら、こちらが正しい
- * @typedef {'id' | 'className' | 'for' | 'textContent' | 'type' | 'name' | 'value' | 'checked' | 'for' | 'min' | 'max'} ElementPropsKey
- */
-
-/**
- * createElement 関数の第二引数 props のキーについて、
- * ホワイトリストで許可された文字列か判定する関数
- * @param {any} maybeKey
- * @returns {maybeKey is ElementPropsKey}
- */
-const isElementPropsKey = (maybeKey) => {
-  /** @type {ElementPropsKey[]} */
-  const elementPropsKeyList = [
-    'id',
-    'className',
-    'textContent',
-    'type',
-    'name',
-    'value',
-    'checked',
-    'for',
-    'min',
-    'max'
-  ];
-  return elementPropsKeyList.includes(maybeKey);
-};
-
-const allowedPropsValueTypeList = ['number', 'radio', 'checkbox', 'button'];
-
-/**
- * @type {{[key in ElementPropsKey]: (val: string) => boolean}}
- */
-const elementPropsValueValidatorMap = {
-  id: (val) => /^[A-Za-z][\w-]*$/.test(val),
-
-  className: (val) => /^[A-Za-z0-9_-]+(?:\s+[A-Za-z0-9_-]+)*$/.test(val),
-
-  name: (val) => /^[A-Za-z0-9_-]+$/.test(val),
-
-  type: (val) => allowedPropsValueTypeList.includes(val),
-
-  value: (_val) => true,
-
-  textContent: (_val) => true,
-
-  checked: (val) => val === 'true' || val === 'false',
-
-  min: (val) => /^-?\d+$/.test(val),
-
-  max: (val) => /^-?\d+$/.test(val),
-
-  for: (val) => /^[A-Za-z][\w-]*$/.test(val)
-};
-
-/**
- * @type {{[key in ElementPropsKey]: (el: HTMLElement, val: string) => void}}
- */
-const elementPropsKeyMap = {
-  id: (el, val) => {
-    el.id = String(val);
-  },
-  className: (el, val) => {
-    el.className = String(val);
-  },
-  textContent: (el, val) => {
-    el.textContent = String(val);
-  },
-  type: (el, val) => {
-    if (el instanceof HTMLInputElement === false && el instanceof HTMLButtonElement === false) return;
-    el.type = String(val);
-  },
-  name: (el, val) => {
-    if (el instanceof HTMLInputElement === false) return;
-    el.name = String(val);
-  },
-  value: (el, val) => {
-    if (el instanceof HTMLInputElement === false) return;
-    el.value = String(val);
-  },
-  min: (el, val) => {
-    if (el instanceof HTMLInputElement === false) return;
-    el.min = String(val);
-  },
-  max: (el, val) => {
-    if (el instanceof HTMLInputElement === false) return;
-    el.max = String(val);
-  },
-  checked: (el, val) => {
-    if (el instanceof HTMLInputElement === false) return;
-    const stringVal = String(val);
-    if (stringVal === 'true') el.checked = true;
-    if (stringVal === 'false') el.checked = false;
-  },
-  for: (el, val) => {
-    if (el instanceof HTMLLabelElement === false) return;
-    el.htmlFor = String(val);
-  }
-};
-
-/**
- * HTML 要素を安全に作成するヘルパー
- * 重要: ** 例外を投げる **
- * @param {string} tag
- * @param {{[key: string]: string | null}} props
- * @param  {...(HTMLElement | string | number | null | undefined)} children
- * @returns {HTMLElement}
- */
-const createElement = (tag, props = {}, ...children) => {
-  const element = document.createElement(tag);
-  if (element instanceof HTMLUnknownElement) throw new Error(`Invalid tagName '${tag}' detected and skipped.`);
-
-  // 属性の設定
-  for (const [key, value] of Object.entries(props)) {
-    if (value == null) continue;
-
-    if (!isElementPropsKey(key)) {
-      throw new Error(`Prohibited property '${key}' detected and skipped.`);
-    }
-
-    if (typeof value !== 'string') {
-      throw new Error(`Invalid value for property '${key}': ${value}`);
-    }
-
-    if (!elementPropsValueValidatorMap[key](value)) {
-      throw new Error(`Invalid value for property '${key}': ${value}`);
-    }
-
-    elementPropsKeyMap[key](element, value);
-  }
-
-  // 子要素の追加
-  children.forEach((child) => {
-    if (child == null) return;
-
-    if (child instanceof HTMLElement) {
-      element.appendChild(child);
-    } else {
-      // 文字列や数値はテキストノードとして追加
-      element.appendChild(document.createTextNode(String(child)));
-    }
-  });
-
-  return element;
-};
-
 // ============================================================
 // ----- Model -----
 /**
  * 入力値から総ページ数、空白ページ数と印刷用紙の枚数を割り出す関数
+ *
+ * 例外: ページ数が MAX_PAGES を超過する場合、branded error を返す
  * @param {SafePositiveInteger} inputtedPages
  * @returns {{
  *    blankPages?: undefined;
@@ -214,8 +68,6 @@ const calcPages = (inputtedPages) => {
 
   return { blankPages, allPages, sheets, error: null };
 };
-
-// --- ^^^ --- 改修予定 --- ^^^ ---
 
 /**
  * @typedef {{
@@ -340,6 +192,8 @@ const dataListCreatorKeyMap = {
 
 /**
  * 描画を担当する関数に渡すためのデータを配列形式で作る関数
+ *
+ * 例外: coverOption が型 CoverOption に当てはまらないとき、branded error を返す
  * @param {object} configs
  * @param {SafePositiveInteger} configs.allPages
  * @param {SafePositiveInteger} configs.sheets
@@ -363,7 +217,7 @@ const createDataListToRender = ({
     return {
       error: {
         __brand: 'dataListCreationError',
-        message: `Error: Invalid value '${coverOption}' detected and skipped.`
+        message: `'${coverOption}'は無効な入力です。`
       }
     };
   const dataList = dataListCreatorKeyMap[coverOption]({ allPages, sheets, startEndColorSheets, centerColorSheets });
@@ -372,26 +226,37 @@ const createDataListToRender = ({
 };
 
 /**
- * インプットを受け取り、UI に表示するべきデータに変換する処理
- * 重要: ** 例外を投げる関数 **
+ * 検証済みの入力値を受け取り、UI に表示するべきデータに変換する処理
+ *
+ * 内部で呼び出す関数の例外発生時には branded error をリレーするほか、
+ * カラーページの合計が総ページ数を超過するときはbranded error を返す
  * @param {object} inputs
  * @param {SafePositiveInteger} inputs.inputtedPages
- * @param {SafePositiveInteger} inputs.startEndColorPages
- * @param {SafePositiveInteger} inputs.centerColorPages
+ * @param {SafeNonNegativeInteger} inputs.startEndColorPages
+ * @param {SafeNonNegativeInteger} inputs.centerColorPages
  * @param {CoverOption} inputs.coverOption
- * @returns {{dataListToRender: SheetData[]; blankPages: SafePositiveInteger;}}
+ * @returns {{
+ *  dataListToRender: SheetData[];
+ *  blankPages: SafeNonNegativeInteger;
+ *  error: null;
+ * } | {
+ *  dataListToRender?: undefined;
+ *  blankPages?: undefined;
+ *  error: {__brand: string; message: string;}
+ * }}
  */
 const buildPrintModel = ({ inputtedPages, startEndColorPages, centerColorPages, coverOption }) => {
   const { blankPages, allPages, sheets, error: calcPagesError } = calcPages(inputtedPages);
-  if (calcPagesError) throw new Error(calcPagesError.message);
+  if (calcPagesError) return { error: calcPagesError };
 
-  if (allPages < startEndColorPages + centerColorPages) throw new Error(`カラーページが総ページ数を超えています。`);
+  if (inputtedPages < startEndColorPages + centerColorPages)
+    return { error: { __brand: 'colorPagesAmountError', message: 'カラーページ数が総ページ数を超えています。' } };
 
   const { sheets: startEndColorSheets, error: startEndColorPagesError } = calcPages(startEndColorPages);
-  if (startEndColorPagesError) throw new Error(startEndColorPagesError.message);
+  if (startEndColorPagesError) return { error: startEndColorPagesError };
 
   const { sheets: centerColorSheets, error: centerColorPagesError } = calcPages(centerColorPages);
-  if (centerColorPagesError) throw new Error(centerColorPagesError.message);
+  if (centerColorPagesError) return { error: centerColorPagesError };
 
   const { dataList: dataListToRender, error: dataListCreationError } = createDataListToRender({
     allPages,
@@ -401,13 +266,173 @@ const buildPrintModel = ({ inputtedPages, startEndColorPages, centerColorPages, 
     coverOption
   });
 
-  if (dataListCreationError) throw new Error(dataListCreationError.message);
+  if (dataListCreationError) return { error: dataListCreationError };
 
-  return { dataListToRender, blankPages };
+  return { dataListToRender, blankPages, error: null };
 };
 
 //============================================================
 // ----- View -----
+
+// =========================
+// --- createElement ---
+// =========================
+
+/**
+ * createElement のヘルパー: 作成する html のタグをブラックリスト形式ではじく
+ *  @type {string[]}
+ */
+const prohibitedTagList = ['html', 'head', 'body', 'meta', 'script', 'style', 'iframe'];
+
+// 厳格なホワイトリスト
+/**
+ * ElementPropsKey についての Single Source of Truth
+ * elementPropsKeyList とコンフリクトするなら、こちらが正しい
+ * @typedef {'id' | 'className' | 'for' | 'textContent' | 'type' | 'name' | 'value' | 'checked' | 'for' | 'min' | 'max'} ElementPropsKey
+ */
+
+/**
+ * createElement 関数の第二引数 props のキーについて、
+ * ホワイトリストで許可された文字列か判定する関数
+ * @param {any} maybeKey
+ * @returns {maybeKey is ElementPropsKey}
+ */
+const isElementPropsKey = (maybeKey) => {
+  /** @type {ElementPropsKey[]} */
+  const elementPropsKeyList = [
+    'id',
+    'className',
+    'textContent',
+    'type',
+    'name',
+    'value',
+    'checked',
+    'for',
+    'min',
+    'max'
+  ];
+  return elementPropsKeyList.includes(maybeKey);
+};
+
+const allowedPropsValueTypeList = ['number', 'radio', 'checkbox', 'button'];
+
+/**
+ * createElement のヘルパー: props の value を検証する関数をまとめた辞書オブジェクト
+ * @type {{[key in ElementPropsKey]: (val: string) => boolean}}
+ */
+const elementPropsValueValidatorMap = {
+  id: (val) => /^[A-Za-z][\w-]*$/.test(val),
+
+  className: (val) => /^[A-Za-z0-9_-]+(?:\s+[A-Za-z0-9_-]+)*$/.test(val),
+
+  name: (val) => /^[A-Za-z0-9_-]+$/.test(val),
+
+  type: (val) => allowedPropsValueTypeList.includes(val),
+
+  value: (_val) => true,
+
+  textContent: (_val) => true,
+
+  checked: (val) => val === 'true' || val === 'false',
+
+  min: (val) => /^-?\d+$/.test(val),
+
+  max: (val) => /^-?\d+$/.test(val),
+
+  for: (val) => /^[A-Za-z][\w-]*$/.test(val)
+};
+
+/**
+ * @type {{[key in ElementPropsKey]: (el: HTMLElement, val: string) => void}}
+ */
+const elementPropsKeyMap = {
+  id: (el, val) => {
+    el.id = String(val);
+  },
+  className: (el, val) => {
+    el.className = String(val);
+  },
+  textContent: (el, val) => {
+    el.textContent = String(val);
+  },
+  type: (el, val) => {
+    if (el instanceof HTMLInputElement === false && el instanceof HTMLButtonElement === false) return;
+    el.type = String(val);
+  },
+  name: (el, val) => {
+    if (el instanceof HTMLInputElement === false) return;
+    el.name = String(val);
+  },
+  value: (el, val) => {
+    if (el instanceof HTMLInputElement === false) return;
+    el.value = String(val);
+  },
+  min: (el, val) => {
+    if (el instanceof HTMLInputElement === false) return;
+    el.min = String(val);
+  },
+  max: (el, val) => {
+    if (el instanceof HTMLInputElement === false) return;
+    el.max = String(val);
+  },
+  checked: (el, val) => {
+    if (el instanceof HTMLInputElement === false) return;
+    const stringVal = String(val);
+    if (stringVal === 'true') el.checked = true;
+    if (stringVal === 'false') el.checked = false;
+  },
+  for: (el, val) => {
+    if (el instanceof HTMLLabelElement === false) return;
+    el.htmlFor = String(val);
+  }
+};
+
+/**
+ * html 要素を安全に作成する関数
+ * - 重要: ** 例外を投げる **
+ * @param {string} tag - 作成したい html 要素のタグ名
+ * @param {{[key: string]: string | null}} props - 属性やテキストコンテント
+ * @param  {...(HTMLElement | string | number | null | undefined)} children - 子要素となるエレメントやテキストノード -> 残余引数
+ * @returns {HTMLElement}
+ */
+const createElement = (tag, props = {}, ...children) => {
+  if (prohibitedTagList.includes(tag)) throw new Error(`Prohibited tagName '${tag}' detected and skipped.`);
+  const element = document.createElement(tag);
+  if (element instanceof HTMLUnknownElement) throw new Error(`Invalid tagName '${tag}' detected and skipped.`);
+
+  // 属性の設定
+  for (const [key, value] of Object.entries(props)) {
+    if (value == null) continue;
+
+    if (!isElementPropsKey(key)) {
+      throw new Error(`Prohibited property '${key}' detected and skipped.`);
+    }
+
+    if (typeof value !== 'string') {
+      throw new Error(`Invalid value for property '${key}': ${value}`);
+    }
+
+    if (!elementPropsValueValidatorMap[key](value)) {
+      throw new Error(`Invalid value for property '${key}': ${value}`);
+    }
+
+    elementPropsKeyMap[key](element, value);
+  }
+
+  // 子要素の追加
+  children.forEach((child) => {
+    if (child == null) return;
+
+    if (child instanceof HTMLElement) {
+      element.appendChild(child);
+    } else {
+      // 文字列や数値はテキストノードとして追加
+      element.appendChild(document.createTextNode(String(child)));
+    }
+  });
+
+  return element;
+};
 
 /**
  * ラジオボタンを作成するヘルパー
@@ -427,13 +452,17 @@ const createCoverOptionRadio = (coverOption, isChecked) => {
 };
 
 /**
- * 数値の入力フォームを作成するヘルパー
- * @param {string} id
- * @param {string} className
- * @param {{[key: string]: string | null}} minmax
+ * ページ数の入力フォームを作成するヘルパー
+ * @param {{
+ *  id: string;
+ *  className: string;
+ *  value?: string | null;
+ *  min?: string | null;
+ *  max?: string | null;
+ * }} props
  * @returns {HTMLInputElement}
  */
-const createPagesInput = (id, className, { value, min, max } = { value: '0', min: '0', max: null }) => {
+const createPagesInput = ({ id, className, value = '0', min = '0', max = `${MAX_PAGES}` }) => {
   // @ts-ignore
   return createElement('input', {
     type: 'number',
@@ -460,6 +489,8 @@ const createFormGroupNumber = (el, text) => {
   );
 };
 
+// ====================
+
 /**
  * 入力フォーム用の DOM を生成する関数
  * @param {Function} onSubmitCallback
@@ -469,9 +500,15 @@ const createInputEntry = (onSubmitCallback) => {
   const coverOptionRadioExcluding = createCoverOptionRadio('excluding', true);
   const coverOptionRadioIncluding = createCoverOptionRadio('including', false);
 
-  const pagesInput = createPagesInput('input-page-count', 'input-page', { value: '1', min: '1', max: '200' });
-  const startEndColorPagesInput = createPagesInput('input-start-end-color', 'input-page');
-  const centerColorPagesInput = createPagesInput('input-center-color', 'input-page');
+  const pagesInput = createPagesInput({
+    id: 'input-page-count',
+    className: 'input-page',
+    value: '1',
+    min: '1',
+    max: `${MAX_PAGES}`
+  });
+  const startEndColorPagesInput = createPagesInput({ id: 'input-start-end-color', className: 'input-page' });
+  const centerColorPagesInput = createPagesInput({ id: 'input-center-color', className: 'input-page' });
 
   // 2. サブミットボタンの作成
   const submitButton = createElement('button', {
@@ -480,7 +517,7 @@ const createInputEntry = (onSubmitCallback) => {
     textContent: '確定'
   });
 
-  // 3. イベントリスナーの設定 -->> 分離
+  // 3. イベントリスナーの設定 -->> Controller に分離？
   submitButton.addEventListener('click', () => {
     const checkedCoverOptionRadio = [coverOptionRadioExcluding, coverOptionRadioIncluding].find(
       (radio) => radio.checked
@@ -609,14 +646,49 @@ const renderBlankPagesText = (blankPages) => {
 
 /**
  *
- * @param {object} printModel
- * @param {SheetData[]} printModel.dataListToRender
- * @param {SafePositiveInteger} printModel.blankPages
+ * @param {{
+ *  dataListToRender: SheetData[];
+ *  blankPages: SafeNonNegativeInteger;
+ *  error: null;
+ * } | {
+ *  dataListToRender?: undefined;
+ *  blankPages?: undefined;
+ *  error: { __brand: string; message: string; }
+ * }} printModel
  */
-const renderUI = ({ dataListToRender, blankPages }) => {
-  renderSheetTable(dataListToRender);
+const renderUI = ({ dataListToRender, blankPages, error }) => {
+  deleteErrorMessage();
 
+  if (error) {
+    renderErrorMessage(error.message);
+    return;
+  }
+
+  renderSheetTable(dataListToRender);
   renderBlankPagesText(blankPages);
+};
+
+/**
+ * branded error の message を受け取り、UI 上に描画する関数
+ * @param {string} msg
+ */
+const renderErrorMessage = (msg) => {
+  const body = document.body;
+
+  const errorMessage = createElement('p', {
+    id: 'error-message',
+    className: 'error-message',
+    textContent: msg
+  });
+
+  body.appendChild(errorMessage);
+};
+
+const deleteErrorMessage = () => {
+  const errorMessage = document.getElementById('error-message');
+  if (!errorMessage) return;
+
+  errorMessage.remove();
 };
 
 const initView = () => {
@@ -644,7 +716,11 @@ const initView = () => {
 // ----- Controller -----
 
 /**
+ * ユーザーが入力した値を検証する関数
  *
+ * - 責務: 入力値の型の検証 ** 検証するのは型のみ **
+ * - 値が適正な範囲内に収まっているか、二つの値の関係は適正か、などは責務外
+ * - 不正な入力があれば branded error を返す
  * @param {{
  *  inputtedPages: any;
  *  startEndColorPages: any;
@@ -666,25 +742,33 @@ const initView = () => {
  */
 const validateInputs = ({ inputtedPages, startEndColorPages, centerColorPages, coverOption }) => {
   if (inputtedPages == null || startEndColorPages == null || centerColorPages == null || coverOption == null)
-    return { error: { __brand: 'dataValidationError', message: 'one or more value is null or undefined.' } };
+    return { error: { __brand: 'dataValidationError', message: 'ページ数を入力してください。' } };
 
   if (!isSafePositiveInteger(inputtedPages))
-    return { error: { __brand: 'dataValidationError', message: 'Inputted pages is not safe positive integer.' } };
+    return {
+      error: { __brand: 'dataValidationError', message: '総ページ数は 1 以上の整数を半角で入力してください。' }
+    };
 
   if (!isSafeNonNegativeInteger(startEndColorPages) || !isSafeNonNegativeInteger(centerColorPages))
     return {
-      error: { __brand: 'dataValidationError', message: 'One or more value is not safe non-negative integer.' }
+      error: { __brand: 'dataValidationError', message: 'カラーページ数は 0 以上の整数を半角で入力してください。' }
     };
   if (!isCoverOption(coverOption))
     return {
-      error: { __brand: 'dataValidationError', message: `Invalid value '${coverOption}' detected and skipped.` }
+      error: {
+        __brand: 'dataValidationError',
+        message: `表紙の設定のチェックボックスのいずれかにチェックを入れてください。`
+      }
     };
 
   return { inputtedPages, startEndColorPages, centerColorPages, coverOption, error: null };
 };
 
 /**
- *
+ * buttonSubmit のイベントリスナー内でよばれるコールバック関数
+ * 1. ユーザー入力を検証する関数を呼ぶ
+ * 2. 不正な入力があればそれにより生じる branded error を受け止め、renderErrorMessage に渡す。
+ * 3. 入力が適正なら、入力値を handleChange に渡す。
  * @param {{
  *  inputtedPages: any;
  *  startEndColorPages: any;
@@ -695,7 +779,7 @@ const validateInputs = ({ inputtedPages, startEndColorPages, centerColorPages, c
 const onSubmitCallback = (inputs) => {
   const result = validateInputs(inputs);
   if (result.error) {
-    // renderError(result.error.message);
+    renderErrorMessage(result.error.message);
     return;
   }
 
@@ -713,11 +797,11 @@ const onSubmitCallback = (inputs) => {
  */
 const handleChange = ({ inputtedPages, startEndColorPages, centerColorPages, coverOption }) => {
   try {
-    const printModel = buildPrintModel({ inputtedPages, startEndColorPages, centerColorPages, coverOption });
+    const result = buildPrintModel({ inputtedPages, startEndColorPages, centerColorPages, coverOption });
 
-    renderUI(printModel);
-  } catch (error) {
-    console.error(error);
+    renderUI(result);
+  } catch (err) {
+    console.error(err);
   }
 };
 
