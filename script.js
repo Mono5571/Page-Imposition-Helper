@@ -7,7 +7,7 @@ const PAGES_PER_SHEET = 4;
 const MAX_PAGES = 200;
 
 // ============================================================
-// ----- utilitys -----
+// ----- utilities -----
 
 /**
  * @typedef {number} SafeNonNegativeInteger
